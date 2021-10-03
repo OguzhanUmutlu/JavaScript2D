@@ -1,0 +1,30 @@
+{
+  "name": "canvas-game-2d",
+  "version": "1.0.1",
+  "description": "Easy and perfect game engine made with JavaScript!",
+  "main": "script.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OguzhanUmutlu/JavaScript2D.git"
+  },
+  "keywords": [
+    "canvas",
+    "javascript",
+    "js",
+    "game",
+    "2d",
+    "2",
+    "engine",
+    "gameengine"
+  ],
+  "author": "OguzhanUmutlu",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/OguzhanUmutlu/JavaScript2D/issues"
+  },
+  "homepage": "https://github.com/OguzhanUmutlu/JavaScript2D#readme",
+  "dependencies": {
+    "canvas": "^2.8.0"
+  }
+}

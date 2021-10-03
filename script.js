@@ -1,8 +1,17 @@
+/*** @type {{Canvas, loadImage} | null} */
+let CanvasModule;
+let Canvas;
+
+try {
+    CanvasModule = require("canvas");
+    Canvas = CanvasModule.Canvas;
+} catch (e) {}
+
 /**
  * @param {string} url
  * @param {number} width
  * @param {number} height
- * @returns {Promise<HTMLImageElement>}
+ * @returns {Promise<Image>}
  * @private
  */
 function __loadImage(url, width, height) {
@@ -78,12 +87,14 @@ class ImageModel extends _Model {
      * @returns {ImageModel}
      */
     setURL(url) {
-        __loadImage(url, this.width, this.height).then(this.setImage);
+        if(CanvasModule) {
+            CanvasModule.loadImage(url).then(this.setImage);
+        } else __loadImage(url, this.width, this.height).then(this.setImage);
         return this;
     }
 
     /**
-     * @param {HTMLImageElement} image
+     * @param {Image} image
      * @returns {ImageModel}
      */
     setImage(image) {
@@ -285,7 +296,7 @@ class Entity extends Vector2 {
 }
 
 class Scene {
-    /*** @param {HTMLCanvasElement} canvas */
+    /*** @param {HTMLCanvasElement | Canvas} canvas */
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = this.canvas.getContext("2d");
@@ -303,7 +314,7 @@ class Scene {
     }
 
     /**
-     * @param {CanvasImageSource} image
+     * @param {Image} image
      * @param {number} width
      * @param {number} height
      * @returns {Scene}
