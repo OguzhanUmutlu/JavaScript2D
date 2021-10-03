@@ -1,0 +1,48 @@
+<canvas id="canvas" width="500" height="500"></canvas>
+
+<script src="script.js"></script>
+<script>
+    const canvas = document.getElementById("canvas");
+    const scene = new Scene(canvas);
+    const entity = new Entity(
+        new EntityData()
+            .setX(0)
+            .setY(0)
+            .setModel(new SquareModel(20, 20))
+    );
+    const text = new Entity(new EntityData({
+        x: canvas.width - 50,
+        y: 15,
+        model: new TextModel(10, 10)
+            .setText("")
+            .setFont("Impact")
+            .setColor("rgba(0, 255, 0, 0.5)")
+            .setPixels(16)
+            .setMaxWidth(100)
+    }));
+    scene.addEntity(entity, 1);
+    scene.addEntity(text);
+    setInterval(() => text.model.setText(scene.fps + " FPS"), 100);
+    const heldKeys = {};
+    addEventListener("keydown", key => {
+        heldKeys[key.key] = true;
+    });
+    addEventListener("keyup", key => {
+        delete heldKeys[key.key];
+    });
+    setInterval(() => {
+        let dx = 0;
+        let dy = 0;
+        if (heldKeys["w"]) dy--;
+        if (heldKeys["a"]) dx--;
+        if (heldKeys["s"]) dy++;
+        if (heldKeys["d"]) dx++;
+        entity.x += dx;
+        entity.y += dy;
+    });
+</script>
+<style>
+    canvas {
+        outline: black 3px solid;
+    }
+</style>
