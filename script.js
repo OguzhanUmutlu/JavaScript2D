@@ -347,3 +347,9 @@ class Scene {
         return this;
     }
 }
+
+try {
+    if(module) {
+        module.exports = {Vector2, ImageModel, SquareModel, TextModel, EntityData, Entity, Scene};
+    }
+} catch (e) {}
