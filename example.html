@@ -1,26 +1,29 @@
-<canvas id="canvas" width="500" height="500"></canvas>
+<canvas style="outline: black 3px solid;" id="canvas" width="500" height="500"></canvas>
 
 <script src="script.js"></script>
 <script>
     const canvas = document.getElementById("canvas");
     const scene = new Scene(canvas);
-    const entity = new Entity(
+    const player = new Entity(
         new EntityData()
             .setX(0)
             .setY(0)
             .setModel(new SquareModel(20, 20))
     );
-    const text = new Entity(new EntityData({
-        x: canvas.width - 50,
-        y: 15,
-        model: new TextModel(10, 10)
-            .setText("")
-            .setFont("Impact")
-            .setColor("rgba(0, 255, 0, 0.5)")
-            .setPixels(16)
-            .setMaxWidth(100)
-    }));
-    scene.addEntity(entity, 1);
+    const text = new Entity(
+        new EntityData()
+            .setX(canvas.width - 50)
+            .setY(30)
+            .setModel(
+                new TextModel(10, 10)
+                    .setText("")
+                    .setFont("Impact")
+                    .setColor("rgba(0, 255, 0, 0.5)")
+                    .setPixels(16)
+                    .setMaxWidth(100)
+            )
+    );
+    scene.addEntity(player, 1);
     scene.addEntity(text);
     setInterval(() => text.model.setText(scene.fps + " FPS"), 100);
     const heldKeys = {};
@@ -37,12 +40,8 @@
         if (heldKeys["a"]) dx--;
         if (heldKeys["s"]) dy++;
         if (heldKeys["d"]) dx++;
-        entity.x += dx;
-        entity.y += dy;
+        player.x += dx;
+        player.y += dy;
+        player.preventBorder(scene);
     });
 </script>
-<style>
-    canvas {
-        outline: black 3px solid;
-    }
-</style>

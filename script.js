@@ -239,6 +239,26 @@ class Entity extends Vector2 {
     }
 
     /**
+     * @param {Vector2 | Entity} vectorOrEntity
+     * @returns {boolean}
+     */
+    collides(vectorOrEntity) {
+        if(vectorOrEntity instanceof Entity)
+            return (vectorOrEntity.x + vectorOrEntity.model.width) >= this.x && vectorOrEntity.x <= (this.x + this.model.width) && vectorOrEntity.y <= (this.y + this.model.height) && (vectorOrEntity.y + vectorOrEntity.model.height) >= this.y;
+        return vectorOrEntity.x >= this.x && vectorOrEntity.x <= (this.x + this.model.width) && vectorOrEntity.y <= (this.y + this.model.height) && vectorOrEntity.y >= this.y;
+    }
+
+    /**
+     * @param {Scene} scene
+     */
+    preventBorder(scene) {
+        if(this.collides(new Vector2(-1, this.y))) this.x = 0;
+        if(this.collides(new Vector2(this.x, -1))) this.y = 0;
+        if(this.collides(new Vector2(scene.canvas.width, this.y))) this.x = scene.canvas.width - this.model.width;
+        if(this.collides(new Vector2(this.x, scene.canvas.height))) this.y = scene.canvas.height - this.model.height;
+    }
+
+    /**
      * @param {number} currentTick
      * @returns {boolean}
      */
