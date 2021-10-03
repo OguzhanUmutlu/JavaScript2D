@@ -5,7 +5,8 @@ let Canvas;
 try {
     CanvasModule = require("canvas");
     Canvas = CanvasModule.Canvas;
-} catch (e) {}
+} catch (e) {
+}
 
 /**
  * @param {string} url
@@ -67,7 +68,8 @@ class _Model {
      * @param {Entity} entity
      * @param {Scene} scene
      */
-    render(entity, scene) {}
+    render(entity, scene) {
+    }
 }
 
 class _ShapeModel extends _Model {
@@ -87,7 +89,7 @@ class ImageModel extends _Model {
      * @returns {ImageModel}
      */
     setURL(url) {
-        if(CanvasModule) {
+        if (CanvasModule) {
             CanvasModule.loadImage(url).then(this.setImage);
         } else __loadImage(url, this.width, this.height).then(this.setImage);
         return this;
@@ -115,12 +117,23 @@ class SquareModel extends _ShapeModel {
 }
 
 class TextModel extends _Model {
+    updateWidth() {
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        if (this.pixels) context.font = this.pixels + "px " + this.font;
+        const metrics = context.measureText(this.text || "");
+        canvas.remove();
+        this.width = metrics.width;
+        this.height = this.pixels;
+    }
+
     /**
      * @param {string} text
      * @returns {TextModel}
      */
     setText(text) {
         this.text = text;
+        this.updateWidth();
         return this;
     }
 
@@ -130,6 +143,7 @@ class TextModel extends _Model {
      */
     setPixels(pixels) {
         this.pixels = pixels;
+        this.updateWidth();
         return this;
     }
 
@@ -139,6 +153,7 @@ class TextModel extends _Model {
      */
     setFont(font) {
         this.font = font;
+        this.updateWidth();
         return this;
     }
 
@@ -172,7 +187,7 @@ class TextModel extends _Model {
     render(entity, scene) {
         scene.ctx.font = this.pixels + "px " + this.font;
         scene.ctx.fillStyle = this.color || "#000000";
-        if(this.align) scene.ctx.textAlign = this.align;
+        if (this.align) scene.ctx.textAlign = this.align;
         scene.ctx.fillText(this.text, entity.x, entity.y, this.maxWidth);
     }
 }
@@ -239,7 +254,7 @@ class EntityData {
 class Entity extends Vector2 {
     /*** @param {EntityData} data */
     constructor(data) {
-        if(!data._data.model) throw new Error("Entities should have valid model!");
+        if (!data._data.model) throw new Error("Entities should have valid model!");
         super(data._data.x, data._data.y);
         this.uuid = __uuid++;
         this.motion = data._data.motion || new Vector2(0, 0);
@@ -254,19 +269,58 @@ class Entity extends Vector2 {
      * @returns {boolean}
      */
     collides(vectorOrEntity) {
-        if(vectorOrEntity instanceof Entity)
-            return (vectorOrEntity.x + vectorOrEntity.model.width) >= this.x && vectorOrEntity.x <= (this.x + this.model.width) && vectorOrEntity.y <= (this.y + this.model.height) && (vectorOrEntity.y + vectorOrEntity.model.height) >= this.y;
-        return vectorOrEntity.x >= this.x && vectorOrEntity.x <= (this.x + this.model.width) && vectorOrEntity.y <= (this.y + this.model.height) && vectorOrEntity.y >= this.y;
+        if (vectorOrEntity instanceof Entity) {
+            return (vectorOrEntity.x + vectorOrEntity.model.width - 1) >= this.x && vectorOrEntity.x <= (this.x + this.model.width - 1) && vectorOrEntity.y <= (this.y + this.model.height - 1) && (vectorOrEntity.y + vectorOrEntity.model.height - 1) >= this.y;
+        } else return vectorOrEntity.x >= this.x && vectorOrEntity.x <= (this.x + this.model.width) && vectorOrEntity.y <= (this.y + this.model.height) && vectorOrEntity.y >= this.y;
     }
 
     /**
      * @param {Scene} scene
+     * @param {(Entity[] | null)?} filter
+     * @returns {Entity[]}
+     */
+    getCollidingEntities(scene, filter = null) {
+        const collidingEntities = [];
+        Array.from(scene.entities)
+            .map(i => i[0])
+            .filter(entity => entity.uuid !== this.uuid)
+            .filter(entity => !filter || (filter.some(cl => entity instanceof cl)))
+            .forEach(entity => {
+                if (entity.collides(this)) collidingEntities.push(entity);
+            });
+        return collidingEntities;
+    }
+
+    isNearToBorder() {
+        return this.collides(new Vector2(0, this.y))
+            || this.collides(new Vector2(this.x, 0))
+            || this.collides(new Vector2(scene.canvas.width - 1, this.y))
+            || this.collides(new Vector2(this.x, scene.canvas.height - 1));
+    }
+
+    /**
+     * @param {Scene} scene
+     * @returns {boolean}
      */
     preventBorder(scene) {
-        if(this.collides(new Vector2(-1, this.y))) this.x = 0;
-        if(this.collides(new Vector2(this.x, -1))) this.y = 0;
-        if(this.collides(new Vector2(scene.canvas.width, this.y))) this.x = scene.canvas.width - this.model.width;
-        if(this.collides(new Vector2(this.x, scene.canvas.height))) this.y = scene.canvas.height - this.model.height;
+        let res = false;
+        if (this.collides(new Vector2(-1, this.y))) {
+            this.x = 0;
+            res = true;
+        }
+        if (this.collides(new Vector2(this.x, -1))) {
+            this.y = 0;
+            res = true;
+        }
+        if (this.collides(new Vector2(scene.canvas.width, this.y))) {
+            this.x = scene.canvas.width - this.model.width;
+            res = true;
+        }
+        if (this.collides(new Vector2(this.x, scene.canvas.height))) {
+            this.y = scene.canvas.height - this.model.height;
+            res = true;
+        }
+        return res;
     }
 
     /**
@@ -340,7 +394,7 @@ class Scene {
      * @returns {Scene}
      */
     setEntityPriority(entity, priority) {
-        if(!this.entities.has(entity)) return this;
+        if (!this.entities.has(entity)) return this;
         this.entities.set(entity, priority);
         return this;
     }
@@ -351,7 +405,7 @@ class Scene {
      */
     onTick(currentTick) {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        Array.from(this.entities).sort((a, b) => a[1] > b[1] ? -1 : (a[1] === b[1] ? 0 : 1)).map(i=> i[0]).filter(data => !data.closed).forEach(entity => {
+        Array.from(this.entities).sort((a, b) => a[1] > b[1] ? -1 : (a[1] === b[1] ? 0 : 1)).map(i => i[0]).filter(data => !data.closed).forEach(entity => {
             entity.onUpdate(currentTick);
             entity.model.render(entity, this);
         });
@@ -360,7 +414,8 @@ class Scene {
 }
 
 try {
-    if(module) {
+    if (module) {
         module.exports = {Vector2, ImageModel, SquareModel, TextModel, EntityData, Entity, Scene};
     }
-} catch (e) {}
+} catch (e) {
+}

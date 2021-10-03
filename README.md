@@ -1,12 +1,18 @@
 # JavaScript2D
 Easy and perfect game engine made with JavaScript!
 
+<hr>
+
 # NPM
 
 ![NPM](https://nodei.co/npm/canvas-game-2d.png?downloads=true&downloadRank=true)
 
+<hr>
+
 # You can visit Wiki for any information!
 [Click to visit Wiki](https://github.com/OguzhanUmutlu/JavaScript2D/wiki)
+
+<hr>
 
 # Setup & Installation
 
@@ -28,6 +34,8 @@ const {Vector2, ImageModel, SquareModel, TextModel, EntityData, Entity, Scene} =
 *****
 
 - You can install it to your IDE by holding your mouse on it and clicking `Download library`
+
+<hr>
 
 # Creating scene
 
@@ -57,6 +65,8 @@ const { createCanvas } = require("canvas");
 const canvas = createCanvas(500, 500);
 const scene = new Scene(canvas);
 ```
+
+<hr>
 
 # Simple Player Example
 
@@ -119,6 +129,48 @@ const scene = new Scene(canvas);
         player.preventBorder(scene);
     });
 ```
+
+<hr>
+
+# Adding obstacles
+
+## Creating class for obstacles
+
+```js
+    class Obstacle extends Entity {
+    }
+```
+
+## Adding obstacle
+
+```js
+    scene.addEntity(new Obstacle(
+        new EntityData()
+            .setX(50)
+            .setY(50)
+            .setModel(new SquareModel(20, 20))
+    ));
+```
+
+## Preventing player to move in it
+
+```js
+    setInterval(() => {
+        let dx = 0;
+        let dy = 0;
+        if (heldKeys["w"]) dy--;
+        if (heldKeys["a"]) dx--;
+        if (heldKeys["s"]) dy++;
+        if (heldKeys["d"]) dx++;
+        player.x += dx;
+        if (player.getCollidingEntities(scene, [Obstacle]).length > 0) player.x -= dx;
+        player.y += dy;
+        if (player.getCollidingEntities(scene, [Obstacle]).length > 0) player.y -= dy;
+        player.preventBorder(scene);
+    });
+```
+
+<hr>
 
 # Adding texts
 

@@ -2,6 +2,9 @@
 
 <script src="script.js"></script>
 <script>
+    class Obstacle extends Entity {
+    }
+
     const canvas = document.getElementById("canvas");
     const scene = new Scene(canvas);
     const player = new Entity(
@@ -24,15 +27,22 @@
             )
     );
     scene.addEntity(player, 1);
+    scene.addEntity(new Obstacle(
+        new EntityData()
+            .setX(50)
+            .setY(50)
+            .setModel(new SquareModel(20, 20))
+    ));
     scene.addEntity(text);
     setInterval(() => text.model.setText(scene.fps + " FPS"), 100);
-    const heldKeys = {};
+    let heldKeys = {};
     addEventListener("keydown", key => {
         heldKeys[key.key] = true;
     });
     addEventListener("keyup", key => {
         delete heldKeys[key.key];
     });
+    addEventListener("blur", () => heldKeys = {});
     setInterval(() => {
         let dx = 0;
         let dy = 0;
@@ -41,7 +51,9 @@
         if (heldKeys["s"]) dy++;
         if (heldKeys["d"]) dx++;
         player.x += dx;
+        if (player.getCollidingEntities(scene, [Obstacle]).length > 0) player.x -= dx;
         player.y += dy;
+        if (player.getCollidingEntities(scene, [Obstacle]).length > 0) player.y -= dy;
         player.preventBorder(scene);
     });
 </script>
