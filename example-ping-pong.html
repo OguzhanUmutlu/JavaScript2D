@@ -1,0 +1,110 @@
+<canvas style="outline: black 3px solid;" id="canvas" width="500" height="500"></canvas>
+
+<script src="script.js"></script>
+<script>
+    class Player extends Entity {
+    }
+
+    const canvas = document.getElementById("canvas");
+    const scene = new Scene(canvas);
+    const points = {
+        0: 0,
+        1: 0,
+    };
+    const background = new Entity(
+        new EntityData({
+            x: 0,
+            y: 0,
+            model: new SquareModel(canvas.width, canvas.height)
+                .setColor("rgba(0, 0, 0, 0.1)")
+        })
+    );
+    const players = [
+        new Player(
+            new EntityData({
+                x: 10,
+                y: canvas.height / 2 - 50,
+                model: new SquareModel(10, 50)
+            })
+        ),
+        new Player(
+            new EntityData({
+                x: canvas.width - 21,
+                y: canvas.height / 2 - 50,
+                model: new SquareModel(10, 50)
+            })
+        )
+    ];
+
+    class Ball extends Entity {
+        onUpdate(currentTick) {
+            if(this.stopped) return;
+            console.log("qwe")
+            ball.add(ball.getDirection().multiply(10, 10));
+            const win = (a) => {
+                points[a]++;
+                this.x = canvas.width / 2;
+                this.y = canvas.height / 2;
+                ball.angle = Math.floor(Math.random() * 360);
+                this.stopped = true;
+                setTimeout(() => this.stopped = false, 2500);
+            }
+            if (this.x > canvas.width - ball.model.width) {
+                win(0);
+            } else if (this.x < 0 - ball.model.width) {
+                win(1);
+            }
+            this.model.width *= 2;
+            if (this.getCollidingEntities(scene, [Player]).length > 0) {
+                this.angle = 180 - this.angle;
+            }
+            this.model.width /= 2;
+            if (this.y >= canvas.height - ball.model.width) {
+                this.angle = Math.abs(180 - this.angle);
+            } else if(this.y <= ball.model.width) {
+                this.angle = Math.abs(180 - this.angle);
+            }
+            return super.onUpdate(currentTick);
+        }
+    }
+
+    const ball = new Ball(
+        new EntityData()
+            .setX(canvas.width / 2)
+            .setY(canvas.height / 2)
+            .setModel(new CircleModel(5, 5))
+    );
+    ball.angle = Math.floor(Math.random() * 360);
+    const text = new Entity(
+        new EntityData()
+            .setX((canvas.width / 2) - 20)
+            .setY(30)
+            .setModel(
+                new TextModel(10, 10)
+                    .setText("0 - 0")
+                    .setFont("Impact")
+                    .setPixels(16)
+            )
+    );
+    setInterval(() => text.model.setText(points[0] + " - " + points[1]));
+    players.forEach(i => scene.addEntity(i));
+    scene.addEntity(text);
+    scene.addEntity(ball);
+    scene.addEntity(background);
+    let heldKeys = {};
+    addEventListener("keydown", key => heldKeys[key.key] = true);
+    addEventListener("keyup", key => delete heldKeys[key.key]);
+    addEventListener("blur", () => heldKeys = {});
+    setInterval(() => {
+        let dyA = 0;
+        let dyB = 0;
+        if (heldKeys["w"]) dyA--;
+        if (heldKeys["s"]) dyA++;
+        if (heldKeys["ArrowUp"]) dyB--;
+        if (heldKeys["ArrowDown"]) dyB++;
+        players[0].y += dyA;
+        players[0].preventBorder(scene);
+        players[1].y += dyB;
+        players[1].preventBorder(scene);
+    });
+</script>

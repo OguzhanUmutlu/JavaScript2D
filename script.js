@@ -47,10 +47,61 @@ class Vector2 {
     }
 
     /**
+     * @param {number | Vector2} x
+     * @param {number?} y
+     * @returns {Vector2}
+     */
+    add(x, y) {
+        if (x instanceof Vector2) return this.add(x.x, x.y);
+        this.x += x;
+        this.y += y;
+        return this;
+    }
+
+    /**
+     * @param {number | Vector2} x
+     * @param {number?} y
+     * @returns {Vector2}
+     */
+    multiply(x, y) {
+        if (x instanceof Vector2) return this.multiply(x.x, x.y);
+        this.x *= x;
+        this.y *= y;
+        return this;
+    }
+
+    /**
+     * @param {number | Vector2} x
+     * @param {number?} y
+     * @returns {Vector2}
+     */
+    divide(x, y) {
+        return this.multiply(1 / x, 1 / y);
+    }
+
+    /**
+     * @param {number | Vector2} x
+     * @param {number?} y
+     * @returns {Vector2}
+     */
+    subtract(x, y) {
+        return this.multiply(-1, -1);
+    }
+
+    /**
+     * @param {number} x
+     * @param {number} y
+     * @returns {Vector2}
+     */
+    new(x, y) {
+        return new Vector2(x, y);
+    }
+
+    /**
      * @returns {Vector2}
      */
     clone() {
-        return new Vector2(this.x, this.y);
+        return this.new(this.x, this.y);
     }
 }
 
@@ -105,14 +156,30 @@ class ImageModel extends _Model {
     }
 
     render(entity, scene) {
+        scene.rotate(entity.angle || 0, entity.x, entity.y, this.width, this.height);
         scene.drawImage(this.image, this.width, this.height);
+        scene.ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 }
 
 class SquareModel extends _ShapeModel {
     render(entity, scene) {
+        scene.rotate(entity.angle || 0, entity.x, entity.y, this.width, this.height);
+        const square = new Path2D();
         scene.ctx.fillStyle = this.color || "#000000";
-        scene.ctx.fillRect(entity.x, entity.y, this.width, this.height);
+        square.rect(entity.x, entity.y, this.width, this.height);
+        scene.ctx.fill(square);
+        scene.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+}
+
+class CircleModel extends _ShapeModel {
+    render(entity, scene) {
+        scene.ctx.fillStyle = this.color || "#000000";
+        const circle = new Path2D();
+        circle.arc(entity.x, entity.y, this.width, 0, 2 * Math.PI);
+        scene.ctx.fill(circle);
+        entity.collides = (vec) => vec.distance(entity) <= this.width;
     }
 }
 
@@ -185,10 +252,12 @@ class TextModel extends _Model {
     }
 
     render(entity, scene) {
+        scene.rotate(entity.angle || 0, entity.x, entity.y, this.width, this.height);
         scene.ctx.font = this.pixels + "px " + this.font;
         scene.ctx.fillStyle = this.color || "#000000";
         if (this.align) scene.ctx.textAlign = this.align;
         scene.ctx.fillText(this.text, entity.x, entity.y, this.maxWidth);
+        scene.ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 }
 
@@ -264,6 +333,11 @@ class Entity extends Vector2 {
         this.model = data._data.model;
     }
 
+    getDirection() {
+        const deg2rad = deg => deg * Math.PI / 180;
+        return new Vector2(-Math.cos(deg2rad(this.angle - 90) - (Math.PI / 2)), -Math.sin(deg2rad(this.angle - 90) - (Math.PI / 2)));
+    }
+
     /**
      * @param {Vector2 | Entity} vectorOrEntity
      * @returns {boolean}
@@ -289,6 +363,16 @@ class Entity extends Vector2 {
                 if (entity.collides(this)) collidingEntities.push(entity);
             });
         return collidingEntities;
+    }
+
+    getNearBorder() {
+        const ways = [
+            this.collides(new Vector2(0, this.y)), // left
+            this.collides(new Vector2(this.x, 0)), // up
+            this.collides(new Vector2(scene.canvas.width - 1, this.y)), // right
+            this.collides(new Vector2(this.x, scene.canvas.height - 1)) // down
+        ];
+        return Object.keys(ways).filter(i => ways[i])[0];
     }
 
     isNearToBorder() {
@@ -365,6 +449,21 @@ class Scene {
             this._fps = 0;
         }, 1000);
         setInterval(() => this.onTick(this.ticks++), 50);
+    }
+
+    /**
+     * @param {number} angle
+     * @param {number} x
+     * @param {number} y
+     * @param {number} width
+     * @param {number} height
+     * @returns {Scene}
+     */
+    rotate(angle, x, y, width, height) {
+        this.ctx.translate((x + (width / 2)), (y + (height / 2)));
+        this.ctx.rotate(angle * Math.PI / 180);
+        this.ctx.translate(-(x + (width / 2)), -(y + (height / 2)));
+        return this;
     }
 
     /**
