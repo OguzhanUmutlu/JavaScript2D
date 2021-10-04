@@ -142,7 +142,7 @@ class ImageModel extends _Model {
     setURL(url) {
         if (CanvasModule) {
             CanvasModule.loadImage(url).then(this.setImage);
-        } else __loadImage(url, this.width, this.height).then(this.setImage);
+        } else __loadImage(url, this.width, this.height).then(i=> this.setImage(i));
         return this;
     }
 
@@ -157,7 +157,7 @@ class ImageModel extends _Model {
 
     render(entity, scene) {
         scene.rotate(entity.angle || 0, entity.x, entity.y, this.width, this.height);
-        scene.drawImage(this.image, this.width, this.height);
+        scene.ctx.drawImage(this.image, entity.x, entity.y, this.width, this.height);
         scene.ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 }
@@ -177,13 +177,17 @@ class CircleModel extends _ShapeModel {
     render(entity, scene) {
         scene.ctx.fillStyle = this.color || "#000000";
         const circle = new Path2D();
-        circle.arc(entity.x, entity.y, this.width, 0, 2 * Math.PI);
+        circle.arc(entity.x, entity.y, this.width / 2, 0, 2 * Math.PI);
         scene.ctx.fill(circle);
         entity.collides = (vec) => vec.distance(entity) <= this.width;
     }
 }
 
 class TextModel extends _Model {
+    constructor() {
+        super(0, 0);
+    }
+
     updateWidth() {
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d");
@@ -256,7 +260,9 @@ class TextModel extends _Model {
         scene.ctx.font = this.pixels + "px " + this.font;
         scene.ctx.fillStyle = this.color || "#000000";
         if (this.align) scene.ctx.textAlign = this.align;
-        scene.ctx.fillText(this.text, entity.x, entity.y, this.maxWidth);
+        this.text.split("\n").forEach((line, index) => {
+            scene.ctx.fillText(line, entity.x, entity.y + (index * this.pixels), this.maxWidth);
+        });
         scene.ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 }
@@ -329,7 +335,7 @@ class Entity extends Vector2 {
         this.motion = data._data.motion || new Vector2(0, 0);
         this.angle = data._data.angle || 0;
         this.closed = false;
-        /*** @type {_Model | _ShapeModel | SquareModel | TextModel | ImageModel} */
+        /*** @type {_Model | _ShapeModel | SquareModel | CircleModel | TextModel | ImageModel} */
         this.model = data._data.model;
     }
 
@@ -357,6 +363,7 @@ class Entity extends Vector2 {
         const collidingEntities = [];
         Array.from(scene.entities)
             .map(i => i[0])
+            .filter(entity => !entity.closed)
             .filter(entity => entity.uuid !== this.uuid)
             .filter(entity => !filter || (filter.some(cl => entity instanceof cl)))
             .forEach(entity => {
@@ -433,9 +440,43 @@ class Entity extends Vector2 {
     }
 }
 
+class Event {
+    /**
+     * @param {string} name
+     * @param {Scene} scene
+     */
+    constructor(name, scene) {
+        this._name = name;
+        this._scene = scene;
+        this._cancelled = false;
+
+    }
+
+    /**
+     * @returns {boolean}
+     */
+    isCancelled() {
+        return this._cancelled;
+    }
+
+    /**
+     * @param {boolean?} value
+     * @returns {Event}
+     */
+    setCancelled(value = true) {
+        this.cancelled = value;
+        return this;
+    }
+
+    call() {
+        this._scene.events[this._name].forEach(callable => callable(this));
+    }
+}
+
 class Scene {
     /*** @param {HTMLCanvasElement | Canvas} canvas */
     constructor(canvas) {
+        this.running = true;
         this.canvas = canvas;
         this.ctx = this.canvas.getContext("2d");
         /*** @type {Map<Entity, number>} */
@@ -443,12 +484,39 @@ class Scene {
         this._fps = 0;
         this.fps = 0;
         this.ticks = 0;
+        this.events = {};
         setInterval(() => this._fps++);
         setInterval(() => {
             this.fps = this._fps;
             this._fps = 0;
         }, 1000);
-        setInterval(() => this.onTick(this.ticks++), 50);
+        setInterval(() => {
+            if(this.running) this.onTick(this.ticks++);
+        }, 50);
+    }
+
+    /**
+     * @param {"onSetRunning"} event
+     * @param {function(event: Event)} callable
+     * @returns {Scene}
+     */
+    on(event, callable) {
+        if(!this.events[event]) this.events[event] = [];
+        this.events[event].push(callable);
+        return this;
+    }
+
+    /**
+     * @param {boolean} value
+     * @returns {Scene}
+     */
+    setRunning(value = true) {
+        const ev = new Event("onSetRunning", this);
+        ev.value = value;
+        ev.call();
+        if(ev.isCancelled()) return this;
+        this.running = value;
+        return this;
     }
 
     /**
@@ -463,17 +531,6 @@ class Scene {
         this.ctx.translate((x + (width / 2)), (y + (height / 2)));
         this.ctx.rotate(angle * Math.PI / 180);
         this.ctx.translate(-(x + (width / 2)), -(y + (height / 2)));
-        return this;
-    }
-
-    /**
-     * @param {Image} image
-     * @param {number} width
-     * @param {number} height
-     * @returns {Scene}
-     */
-    drawImage(image, width, height) {
-        this.ctx.drawImage(image, width, height);
         return this;
     }
 

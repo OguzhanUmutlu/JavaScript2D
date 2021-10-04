@@ -1,0 +1,203 @@
+<canvas style="outline: black 3px solid;position: absolute;left: 0;top: 0;" id="canvas" width="1515"
+        height="770"></canvas>
+
+<script src="script.js"></script>
+<script>
+    const canvas = document.getElementById("canvas");
+    const scene = new Scene(canvas);
+    let enemies = 0;
+    let points = 0;
+    let bulletSpeed = 20;
+    let speed = 7;
+    let bulletImage;
+    __loadImage("./assets/bullet.png", 72, 79).then(i => bulletImage = i);
+
+    let machineEnabled = false;
+
+    class Earth extends Entity {
+        constructor(data) {
+            data.setModel(new ImageModel((canvas.width + 75), (canvas.width + 75) / (225 / 94)).setURL("./assets/earth.png"))
+            super(data);
+        }
+
+        onUpdate(currentTick) {
+            this.y += 10;
+            if (this.y > canvas.height) this.close();
+            return super.onUpdate(currentTick);
+        }
+    }
+
+    class Enemy extends Entity {
+        constructor(data) {
+            data.setModel(new ImageModel(92 / 2, 58.25 / 2).setURL("./assets/ufo_enemy.png"))
+            super(data);
+        }
+
+        onUpdate(currentTick) {
+            this.y += speed;
+            if (this.y > player.y) {
+                scene.lost = true;
+            }
+            return super.onUpdate(currentTick);
+        }
+
+        close() {
+            enemies++;
+            return super.close();
+        }
+    }
+
+    class Dot extends Entity {
+        onUpdate(currentTick) {
+            this.y += this.size * 2 + speed / 3;
+            if (this.y > canvas.height) this.close();
+            return super.onUpdate(currentTick);
+        }
+
+        close() {
+            machineEnabled = true;
+            return super.close();
+        }
+    }
+
+    class Bullet extends Entity {
+        constructor(data) {
+            data.setModel(new ImageModel(72 / 4.5, 79 / 4.5).setImage(bulletImage))
+            super(data);
+        }
+
+        onUpdate(currentTick) {
+            this.y -= bulletSpeed;
+            this.getCollidingEntities(scene, [Enemy]).forEach(entity => {
+                entity.close();
+                this.close();
+            });
+            if (this.y < 0) this.close();
+            return super.onUpdate(currentTick);
+        }
+    }
+
+    class Player extends Entity {
+        onUpdate(currentTick) {
+            if (this.y < canvas.height - 92) {
+                this.y += 10;
+            }
+            return super.onUpdate(currentTick);
+        }
+    }
+
+    class MiddleTextEntity extends Entity {
+        onUpdate(currentTick) {
+            this.x = canvas.width / 2 - (170 / 6) * this.model.text.length;
+            return super.onUpdate(currentTick);
+        }
+    }
+
+    const middleText = new MiddleTextEntity(
+        new EntityData({
+            x: canvas.width / 2 - (160 / 6) * 6,
+            y: canvas.height / 2,
+            model: new TextModel().setPixels(90).setText("").setColor("#ffffff").setFont("courier")
+        })
+    );
+
+    const enemyText = new Entity(
+        new EntityData({
+            x: 10,
+            y: 30,
+            model: new TextModel().setPixels(20).setText("").setColor("#ffffff").setFont("courier")
+        })
+    );
+    middleText.close();
+    scene.addEntity(enemyText, 1);
+    scene.addEntity(middleText, 1);
+
+    const player = new Player(
+        new EntityData()
+            .setX((canvas.width / 2) - 92 / 3)
+            .setY(canvas.height / 3)
+            .setModel(new ImageModel(92 / 2, 58.25 / 2).setURL("./assets/ufo_player.png"))
+    );
+    scene.addEntity(new Entity(
+        new EntityData({
+            x: 0,
+            y: 0,
+            model: new SquareModel(canvas.width, canvas.height)
+        })
+    ), 20);
+    scene.addEntity(player, 1);
+    scene.addEntity(new Earth(
+        new EntityData({
+            x: -35,
+            y: canvas.height - 250
+        })
+    ), 2)
+    let heldKeys = {};
+    addEventListener("keydown", key => {
+        heldKeys[key.key] = true;
+    });
+    addEventListener("keyup", key => {
+        delete heldKeys[key.key];
+    });
+    addEventListener("blur", () => {
+        heldKeys = {};
+        scene.setRunning(false);
+    });
+    addEventListener("focus", () => scene.setRunning());
+    let lastBullet = 0;
+    scene.on("onSetRunning", () => {
+        if (scene.lost) {
+            middleText.model.setText("YOU LOST");
+        } else middleText.model.setText("PAUSED");
+        middleText.closed = false;
+        scene.onTick(scene.ticks);
+    })
+    setInterval(() => {
+        if (scene.lost) scene.setRunning(false);
+        if (!scene.running) return;
+        middleText.closed = true;
+        enemyText.model.setText(
+            "Points: " + (Math.floor(points / 5) * 5) +
+            "\nKilled enemies: " + enemies +
+            "\nSpeed: " + (Math.floor(speed * 10 - 60) / 10));
+        speed += 0.0008;
+        if (Math.random() > 0.960) {
+            const size = Math.floor(Math.random() * 3) + 1;
+            const dot = new Dot(
+                new EntityData({
+                    x: Math.floor(Math.random() * canvas.width),
+                    y: -10,
+                    model: new SquareModel(size, size).setColor("#ffffff")
+                })
+            );
+            dot.size = size;
+            scene.addEntity(dot, 6);
+        }
+        if (machineEnabled && Math.random() > 0.99 && Math.random() > 0.60) {
+            const enemy = new Enemy(
+                new EntityData({
+                    x: Math.floor(Math.random() * (canvas.width - 100)) + 50,
+                    y: -50
+                })
+            );
+            scene.addEntity(enemy, 5);
+        }
+        let dx = 0;
+        let dy = 0;
+        if (heldKeys["a"]) dx -= speed / 6;
+        if (heldKeys["d"]) dx += speed / 6;
+        player.x += dx;
+        player.y += dy;
+        player.preventBorder(scene);
+        points += 0.01 * speed;
+        if (machineEnabled && Date.now() > lastBullet) {
+            scene.addEntity(new Bullet(
+                new EntityData({
+                    x: player.x + 16,
+                    y: player.y
+                })
+            ), 2);
+            lastBullet = Date.now() + 300 - speed;
+        }
+    });
+</script>
