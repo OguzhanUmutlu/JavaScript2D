@@ -334,7 +334,7 @@ class Entity extends Vector2 {
         this.uuid = __uuid++;
         this.motion = data._data.motion || new Vector2(0, 0);
         this.angle = data._data.angle || 0;
-        this.closed = false;
+        this.closed = true;
         /*** @type {_Model | _ShapeModel | SquareModel | CircleModel | TextModel | ImageModel} */
         this.model = data._data.model;
     }
@@ -540,6 +540,7 @@ class Scene {
      * @returns {Scene}
      */
     addEntity(entity, priority = 9) {
+        entity.closed = false;
         this.entities.set(entity, priority);
         return this;
     }

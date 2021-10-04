@@ -1,0 +1,172 @@
+<canvas style="outline: black 3px solid;position: absolute;left: 0;top: 0;" id="canvas" width="1365"
+        height="695"></canvas>
+
+<script src="script.js"></script>
+<script>
+    let evAl;
+    (async () => {
+        evAl = r => eval(r);
+        const canvas = document.getElementById("canvas");
+        const scene = new Scene(canvas);
+        let apples = 0;
+        let appleImage = await __loadImage("./assets/apple.png", 16, 16);
+
+        let apple;
+
+        class Apple extends Entity {
+        }
+
+        class Snake extends Entity {
+        }
+
+        class SnakeHead extends Snake {
+            constructor(data) {
+                super(data);
+                this.snakes = [];
+                this.way = 0;
+                this.l = 0;
+                this.sx = 1;
+                this.sy = 0;
+                this.size = 3;
+            }
+
+            move(x, y) {
+                if (Date.now() < this.l) return;
+                this.l = Date.now() + 150;
+                this.sx += x;
+                this.sy += y;
+                if (this.sx >= Math.floor(canvas.width / 27.5) || this.sx <= -1 || this.sy >= Math.floor(canvas.height / 27.5) || this.sy <= -1)
+                    return scene.lost = true;
+                if (this.snakes.some(i => i.x / 28 === this.sx && i.y / 28 === this.sy))
+                    return scene.lost = true;
+                this.angle = this.way;
+                this.x = 28 * this.sx;
+                this.y = 28 * this.sy;
+                this.snakes.push(new Snake(
+                    new EntityData({
+                        x: 28 * (this.sx - x),
+                        y: 28 * (this.sy - y),
+                        model: new SquareModel(24, 24).setColor("rgb(0, 255, 0)")
+                    })
+                ));
+                while (this.snakes.length > this.size) {
+                    this.snakes[0].close();
+                    this.snakes.shift();
+                }
+                this.snakes.forEach(entity => scene.addEntity(entity, 3));
+            }
+
+            onUpdate(currentTick) {
+                switch (this.way) {
+                    case 180: // left
+                        this.move(-1, 0);
+                        break;
+                    case 0: // right
+                        this.move(1, 0);
+                        break;
+                    case 270: // up
+                        this.move(0, -1);
+                        break;
+                    case 90: // down
+                        this.move(0, 1);
+                        break;
+                }
+                if (this.getCollidingEntities(scene, [Apple]).length > 0) {
+                    apple.close();
+                    apples++;
+                    this.size++;
+                }
+                if (!apple || apple.closed) {
+                    const empties = [];
+                    for (let x = 0; x < Math.floor(canvas.width / 27.5); x++) {
+                        for (let y = 0; y < Math.floor(canvas.height / 27.5); y++) {
+                            if (![...this.snakes, this].some(i => i.x / 28 === x && i.y / 28 === y)) {
+                                empties.push([x, y]);
+                            }
+                        }
+                    }
+                    const empty = empties[Math.floor(Math.random() * empties.length)];
+                    if(!empty) return scene.win = true;
+                    apple = new Apple(
+                        new EntityData({
+                            x: 28 * empty[0],
+                            y: 28 * empty[1],
+                            model: new ImageModel(24, 24).setImage(appleImage)
+                        })
+                    );
+                    scene.addEntity(apple, 5);
+                }
+                return super.onUpdate(currentTick);
+            }
+        }
+
+        const snake = new SnakeHead(
+            new EntityData()
+                .setX(0)
+                .setY(0)
+                .setModel(new ImageModel(24, 24).setURL("./assets/snake_head.png"))
+        );
+
+        class MiddleTextEntity extends Entity {
+            onUpdate(currentTick) {
+                this.x = canvas.width / 2 - (170 / 6) * this.model.text.length;
+                return super.onUpdate(currentTick);
+            }
+        }
+
+        const middleText = new MiddleTextEntity(
+            new EntityData({
+                x: canvas.width / 2 - (160 / 6) * 6,
+                y: canvas.height / 2,
+                model: new TextModel().setPixels(90).setText("").setColor("#ffffff").setFont("courier")
+            })
+        );
+
+        const infoText = new Entity(
+            new EntityData({
+                x: 10,
+                y: 30,
+                model: new TextModel().setPixels(20).setText("").setColor("#ffffff").setFont("courier")
+            })
+        );
+
+        middleText.close();
+        scene.addEntity(snake, 3);
+        scene.addEntity(middleText, 2);
+        scene.addEntity(new Entity(
+            new EntityData({
+                x: 0,
+                y: 0,
+                model: new SquareModel(canvas.width, canvas.height)
+            })
+        ));
+        scene.addEntity(infoText, 2);
+        let heldKeys = {};
+        addEventListener("keydown", key => {
+            heldKeys[key.key] = true;
+        });
+        addEventListener("keyup", key => {
+            delete heldKeys[key.key];
+        });
+        addEventListener("blur", () => {
+            heldKeys = {};
+            scene.setRunning(false);
+        });
+        addEventListener("focus", () => scene.setRunning());
+        scene.on("onSetRunning", () => {
+            middleText.model.setText(scene.lost ? "YOU LOST" : (scene.win ? "YOU WON" : "PAUSED"));
+            middleText.closed = false;
+            scene.onTick(scene.ticks);
+        })
+        setInterval(() => {
+            if (scene.lost || scene.win) scene.setRunning(false);
+            if (!scene.running) return;
+            middleText.closed = true;
+            infoText.model.setText("Apples eaten: " + apples);
+            if (heldKeys["a"] && snake.way !== 0) snake.way = 180; // left
+            if (heldKeys["d"] && snake.way !== 180) snake.way = 0; // right
+            if (heldKeys["w"] && snake.way !== 90) snake.way = 270; // up
+            if (heldKeys["s"] && snake.way !== 270) snake.way = 90; // down
+        });
+    })();
+</script>

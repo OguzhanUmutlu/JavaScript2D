@@ -39,7 +39,6 @@
     class Ball extends Entity {
         onUpdate(currentTick) {
             if(this.stopped) return;
-            console.log("qwe")
             ball.add(ball.getDirection().multiply(10, 10));
             const win = (a) => {
                 points[a]++;
