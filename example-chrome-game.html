@@ -1,0 +1,170 @@
+<canvas style="outline: black 3px solid;position: absolute;left: 420px;top: 270px;" id="canvas" width="500"
+        height="173"></canvas>
+
+<script src="script.js"></script>
+<script>
+    const canvas = document.getElementById("canvas");
+    const scene = new Scene(canvas);
+    const images = {};
+    (async () => {
+        images.dinosaur = await __loadImage("./assets/dinosaur.png", 225, 225);
+        images.sneaking_dino = await __loadImage("./assets/sneaking_dino.png", 225, 225);
+        images.jump_up_dino = await __loadImage("./assets/jump_up_dino.png", 225, 225);
+        images.jump_down_dino = await __loadImage("./assets/jump_down_dino.png", 225, 225);
+        images.obstacle1 = await __loadImage("./assets/obstacle_1.png", 225, 225);
+    })();
+    let speed = 7;
+
+    class Obstacle extends Entity {
+        constructor(props) {
+            props.setModel(new ImageModel(60, 52).setImage(images.obstacle1));
+            super(props);
+        }
+
+        onUpdate(currentTick) {
+            this.x -= speed;
+            return super.onUpdate(currentTick);
+        }
+    }
+
+    class Player extends Entity {
+        constructor(props) {
+            super(props);
+        }
+
+        isOnGround() {
+            return this.y >= canvas.height - 70;
+        }
+
+        jump() {
+            if (!this.isOnGround()) return;
+            this.setMotion(0, -200);
+        }
+
+        onUpdate(currentTick) {
+            if (this.getCollidingEntities(scene, [Obstacle]).length > 0) {
+                scene.lost = true;
+                return this.close();
+            }
+            if (this.motion.y > -20) this.setMotion(0, 0);
+            if (!this.isOnGround()) {
+                this.model.setImage(images.jump_down_dino);
+                this.y += 7;
+            } else {
+                this.model.setImage(images.jump_up_dino);
+            }
+            return super.onUpdate(currentTick);
+        }
+    }
+
+    class Road extends Entity {
+        onUpdate(currentTick) {
+            if (!this["start"]) this.x -= speed;
+            if (this.x < -canvas.width && !this.end) {
+                this.end = true;
+                const road = new Road({
+                    x: canvas.width,
+                    y: canvas.height - 30,
+                    model: new ImageModel(1022, 12).setURL("./assets/road.png")
+                });
+                scene.addEntity(road);
+            }
+            if (this.x < canvas.width * -2) this.close();
+            return super.onUpdate(currentTick);
+        }
+    }
+
+    let points = 0;
+
+    const player = new Player(
+        new EntityData({
+            x: 10,
+            y: canvas.height - 70,
+            model: new ImageModel(45, 45).setURL("./assets/dinosaur.png").setImage(images.dinosaur)
+        })
+    );
+
+    class MiddleTextEntity extends Entity {
+        onUpdate(currentTick) {
+            this.x = canvas.width / 2 - (170 / 6) * this.model.text.length;
+            return super.onUpdate(currentTick);
+        }
+    }
+
+    const road = new Road({
+        x: 0,
+        y: canvas.height - 30,
+        model: new ImageModel(1022, 12).setURL("./assets/road.png")
+    });
+
+    const middleText = new MiddleTextEntity(
+        new EntityData({
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            model: new TextModel().setPixels(90).setText("").setColor("#000000").setFont("courier")
+        })
+    );
+
+    const text = new Entity(
+        new EntityData()
+            .setX(canvas.width - 110)
+            .setY(30)
+            .setModel(
+                new TextModel(10, 10)
+                    .setText("TEST")
+                    .setFont("courier")
+                    .setPixels(16)
+            )
+    );
+
+    setInterval(() => text.model.setText((("0".repeat(7-Math.floor(points).toString().length)) + Math.floor(points)) + " PT"));
+    road.start = true;
+    middleText.close();
+    scene.addEntity(text);
+    scene.addEntity(player);
+    scene.addEntity(road);
+    scene.addEntity(middleText, 1);
+    scene.addEntity(new Entity({
+        x: 0,
+        y: 0,
+        model: new SquareModel(canvas.width, canvas.height).setColor("#f7f7f7")
+    }), 20);
+    let heldKeys = {};
+    addEventListener("keydown", key => heldKeys[key.key] = true);
+    addEventListener("keyup", key => delete heldKeys[key.key]);
+    addEventListener("blur", () => {
+        heldKeys = {};
+        scene.setRunning(false);
+    });
+    addEventListener("focus", () => scene.setRunning());
+    scene.on("onSetRunning", () => {
+        if (scene.lost) {
+            middleText.model.setText("YOU LOST");
+        } else middleText.model.setText("PAUSED");
+        middleText.closed = false;
+        scene.onTick(scene.ticks);
+    });
+    let lastCacti = 0;
+    setInterval(() => {
+        if (scene.lost) scene.setRunning(false);
+        if (!scene.running) return;
+        middleText.closed = true;
+        if (heldKeys[" "]) {
+            road.start = false;
+            player.jump();
+        }
+        if (!road.start) {
+            speed += 0.0001;
+            points += 0.03;
+            if (heldKeys["ArrowUp"]) player.jump();
+            if (Date.now() > lastCacti && Math.random() > 0.99) {
+                lastCacti = Date.now() + 2000;
+                const obstacle = new Obstacle(new EntityData({
+                    x: canvas.width + 50,
+                    y: canvas.height - 55
+                }));
+                scene.addEntity(obstacle);
+            }
+        }
+    });
+</script>

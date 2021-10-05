@@ -86,7 +86,7 @@
                         }
                     }
                     const empty = empties[Math.floor(Math.random() * empties.length)];
-                    if(!empty) return scene.win = true;
+                    if (!empty) return scene.win = true;
                     apple = new Apple(
                         new EntityData({
                             x: 28 * empty[0],
@@ -157,7 +157,7 @@
             middleText.model.setText(scene.lost ? "YOU LOST" : (scene.win ? "YOU WON" : "PAUSED"));
             middleText.closed = false;
             scene.onTick(scene.ticks);
-        })
+        });
         setInterval(() => {
             if (scene.lost || scene.win) scene.setRunning(false);
             if (!scene.running) return;

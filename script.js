@@ -22,6 +22,35 @@ function __loadImage(url, width, height) {
     return promise;
 }
 
+class Event {
+    /*** @param {string} name */
+    constructor(name, source) {
+        this._name = name;
+        this._source = source;
+        this._cancelled = false;
+
+    }
+
+    /*** @returns {boolean} */
+    isCancelled() {
+        return this._cancelled;
+    }
+
+    /**
+     * @param {boolean?} value
+     * @returns {Event}
+     */
+    setCancelled(value = true) {
+        this._cancelled = value;
+        return this;
+    }
+
+    call() {
+        if (!this._source.events[this._name]) this._source.events[this._name] = [];
+        this._source.events[this._name].forEach(callable => callable(this));
+    }
+}
+
 /**
  * @type {number}
  * @private
@@ -85,7 +114,7 @@ class Vector2 {
      * @returns {Vector2}
      */
     subtract(x, y) {
-        return this.multiply(-1, -1);
+        return this.add(-x, -y);
     }
 
     /**
@@ -97,11 +126,17 @@ class Vector2 {
         return new Vector2(x, y);
     }
 
-    /**
-     * @returns {Vector2}
-     */
+    /*** @returns {Vector2} */
     clone() {
         return this.new(this.x, this.y);
+    }
+
+    /**
+     * @param {Vector2} vector
+     * @returns {boolean}
+     */
+    equals(vector) {
+        return vector.x === this.x && vector.y === this.y;
     }
 }
 
@@ -140,9 +175,10 @@ class ImageModel extends _Model {
      * @returns {ImageModel}
      */
     setURL(url) {
+        this.url = url;
         if (CanvasModule) {
-            CanvasModule.loadImage(url).then(this.setImage);
-        } else __loadImage(url, this.width, this.height).then(i=> this.setImage(i));
+            CanvasModule.loadImage(url).then(i => this.setImage(i));
+        } else __loadImage(url, this.width, this.height).then(i => this.setImage(i));
         return this;
     }
 
@@ -155,14 +191,37 @@ class ImageModel extends _Model {
         return this;
     }
 
+    /**
+     * @param {Entity} entity
+     * @param {Scene} scene
+     */
     render(entity, scene) {
         scene.rotate(entity.angle || 0, entity.x, entity.y, this.width, this.height);
-        scene.ctx.drawImage(this.image, entity.x, entity.y, this.width, this.height);
-        scene.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        const draw = () => {
+            scene.ctx.drawImage(this.image, entity.x, entity.y, this.width, this.height);
+            scene.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        }
+        if (!this.image && this.url) {
+            console.info("Image couldn't loaded so loading it again... (Image: " + this.url + ")");
+            const {url} = this;
+            if (CanvasModule) {
+                CanvasModule.loadImage(url).then(i => {
+                    this.setImage(i);
+                    draw();
+                });
+            } else __loadImage(url, this.width, this.height).then(i => {
+                this.setImage(i);
+                draw();
+            });
+        } else draw();
     }
 }
 
 class SquareModel extends _ShapeModel {
+    /**
+     * @param {Entity} entity
+     * @param {Scene} scene
+     */
     render(entity, scene) {
         scene.rotate(entity.angle || 0, entity.x, entity.y, this.width, this.height);
         const square = new Path2D();
@@ -174,6 +233,10 @@ class SquareModel extends _ShapeModel {
 }
 
 class CircleModel extends _ShapeModel {
+    /**
+     * @param {Entity} entity
+     * @param {Scene} scene
+     */
     render(entity, scene) {
         scene.ctx.fillStyle = this.color || "#000000";
         const circle = new Path2D();
@@ -255,6 +318,10 @@ class TextModel extends _Model {
         return this;
     }
 
+    /**
+     * @param {Entity} entity
+     * @param {Scene} scene
+     */
     render(entity, scene) {
         scene.rotate(entity.angle || 0, entity.x, entity.y, this.width, this.height);
         scene.ctx.font = this.pixels + "px " + this.font;
@@ -327,10 +394,13 @@ class EntityData {
 
 
 class Entity extends Vector2 {
-    /*** @param {EntityData} data */
+    /*** @param {EntityData | {x?, y?, motion?, angle?, model?}} data */
     constructor(data) {
+        if (!(data instanceof EntityData)) data = new EntityData(data);
         if (!data._data.model) throw new Error("Entities should have valid model!");
         super(data._data.x, data._data.y);
+        this._data = data._data;
+        this.events = {};
         this.uuid = __uuid++;
         this.motion = data._data.motion || new Vector2(0, 0);
         this.angle = data._data.angle || 0;
@@ -339,6 +409,30 @@ class Entity extends Vector2 {
         this.model = data._data.model;
     }
 
+    /**
+     * @param {"onMove"} event
+     * @param {function(event: Event)} callable
+     * @returns {Entity}
+     */
+    on(event, callable) {
+        if (!this.events[event]) this.events[event] = [];
+        this.events[event].push(callable);
+        return this;
+    }
+
+    /**
+     * @param {Vector2} vector
+     * @returns {Entity}
+     */
+    lookAt(vector) {
+        let xDist = vector.x - this.x;
+        let zDist = vector.y - this.y;
+        this.angle = Math.atan2(zDist, xDist) / Math.PI * 180;
+        if (this.angle < 0) this.angle += 360.0;
+        return this;
+    }
+
+    /*** @returns {Vector2} */
     getDirection() {
         const deg2rad = deg => deg * Math.PI / 180;
         return new Vector2(-Math.cos(deg2rad(this.angle - 90) - (Math.PI / 2)), -Math.sin(deg2rad(this.angle - 90) - (Math.PI / 2)));
@@ -372,6 +466,7 @@ class Entity extends Vector2 {
         return collidingEntities;
     }
 
+    /*** @return {string} */
     getNearBorder() {
         const ways = [
             this.collides(new Vector2(0, this.y)), // left
@@ -382,6 +477,7 @@ class Entity extends Vector2 {
         return Object.keys(ways).filter(i => ways[i])[0];
     }
 
+    /*** @return {boolean} */
     isNearToBorder() {
         return this.collides(new Vector2(0, this.y))
             || this.collides(new Vector2(this.x, 0))
@@ -395,19 +491,19 @@ class Entity extends Vector2 {
      */
     preventBorder(scene) {
         let res = false;
-        if (this.collides(new Vector2(-1, this.y))) {
+        if (this.x < 0) {
             this.x = 0;
             res = true;
         }
-        if (this.collides(new Vector2(this.x, -1))) {
+        if (this.y < 0) {
             this.y = 0;
             res = true;
         }
-        if (this.collides(new Vector2(scene.canvas.width, this.y))) {
+        if (this.x + this.model.width > scene.canvas.width) {
             this.x = scene.canvas.width - this.model.width;
             res = true;
         }
-        if (this.collides(new Vector2(this.x, scene.canvas.height))) {
+        if (this.y + this.model.height > scene.canvas.height) {
             this.y = scene.canvas.height - this.model.height;
             res = true;
         }
@@ -415,10 +511,34 @@ class Entity extends Vector2 {
     }
 
     /**
+     * @param {number} dx
+     * @param {number} dy
+     */
+    move(dx, dy) {
+        let ev = new Event("onMove", this);
+        ev.entity = this;
+        ev.from = this.clone();
+        ev.to = this.clone().add(dx, dy);
+        if (ev.from.equals(ev.to)) return;
+        ev.call();
+        if (!ev.isCancelled()) {
+            this.x = ev.to.x;
+            this.y = ev.to.y;
+        }
+    }
+
+    /**
      * @param {number} currentTick
      * @returns {boolean}
      */
     onUpdate(currentTick) {
+        if (this.motion.x > 0 && this.motion.x < 0.00001) this.motion.x = 0;
+        if (this.motion.y > 0 && this.motion.y < 0.00001) this.motion.y = 0;
+        const dx = this.motion.x / 10;
+        const dy = this.motion.y / 10;
+        this.move(dx, dy);
+        this.motion.x -= dx;
+        this.motion.y -= dy;
         return false;
     }
 
@@ -433,43 +553,32 @@ class Entity extends Vector2 {
         return this;
     }
 
+    /**
+     * @param {number|Vector2} x
+     * @param {number} y
+     */
+    addMotion(x = 0, y = 0) {
+        this.motion.add(x, y);
+        return this;
+    }
+
     /*** @returns {Entity} */
     close() {
         this.closed = true;
         return this;
     }
-}
-
-class Event {
-    /**
-     * @param {string} name
-     * @param {Scene} scene
-     */
-    constructor(name, scene) {
-        this._name = name;
-        this._scene = scene;
-        this._cancelled = false;
-
-    }
 
     /**
-     * @returns {boolean}
+     * @param {function(EntityData: data)} type
+     * @param {Scene?} scene
+     * @returns {Entity}
      */
-    isCancelled() {
-        return this._cancelled;
-    }
-
-    /**
-     * @param {boolean?} value
-     * @returns {Event}
-     */
-    setCancelled(value = true) {
-        this.cancelled = value;
-        return this;
-    }
-
-    call() {
-        this._scene.events[this._name].forEach(callable => callable(this));
+    cloneEntity(type, scene = null) {
+        const entity = new type(this._data);
+        const {...obj} = this;
+        Array.from(Object.entries(obj)).forEach(i => entity[i[0]] = i[1]);
+        if (scene) scene.addEntity(entity);
+        return entity;
     }
 }
 
@@ -491,7 +600,7 @@ class Scene {
             this._fps = 0;
         }, 1000);
         setInterval(() => {
-            if(this.running) this.onTick(this.ticks++);
+            if (this.running) this.onTick(this.ticks++);
         }, 50);
     }
 
@@ -501,7 +610,7 @@ class Scene {
      * @returns {Scene}
      */
     on(event, callable) {
-        if(!this.events[event]) this.events[event] = [];
+        if (!this.events[event]) this.events[event] = [];
         this.events[event].push(callable);
         return this;
     }
@@ -514,7 +623,7 @@ class Scene {
         const ev = new Event("onSetRunning", this);
         ev.value = value;
         ev.call();
-        if(ev.isCancelled()) return this;
+        if (ev.isCancelled()) return this;
         this.running = value;
         return this;
     }

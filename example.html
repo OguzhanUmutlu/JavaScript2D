@@ -38,11 +38,27 @@
     let heldKeys = {};
     addEventListener("keydown", key => {
         heldKeys[key.key] = true;
+        if(key.key === " " && player.clientX) {
+            player.lookAt(new Vector2(player.clientX, player.clientY));
+            player.addMotion(player.getDirection().multiply(150, 150));
+            player.angle = 0;
+        }
     });
     addEventListener("keyup", key => {
         delete heldKeys[key.key];
     });
+    addEventListener("mousemove", ev => {
+        const {clientX, clientY} = ev;
+        player.clientX = clientX;
+        player.clientY = clientY;
+    });
     addEventListener("blur", () => heldKeys = {});
+    player.on("onMove", ev => {
+        ev.entity.x = ev.to.x;
+        if (ev.entity.getCollidingEntities(scene, [Obstacle]).length > 0) ev.to.x = ev.from.x;
+        ev.entity.y = ev.to.y;
+        if (ev.entity.getCollidingEntities(scene, [Obstacle]).length > 0) ev.to.y = ev.from.y;
+    })
     setInterval(() => {
         let dx = 0;
         let dy = 0;
@@ -50,10 +66,7 @@
         if (heldKeys["a"]) dx--;
         if (heldKeys["s"]) dy++;
         if (heldKeys["d"]) dx++;
-        player.x += dx;
-        if (player.getCollidingEntities(scene, [Obstacle]).length > 0) player.x -= dx;
-        player.y += dy;
-        if (player.getCollidingEntities(scene, [Obstacle]).length > 0) player.y -= dy;
+        player.move(dx, dy);
         player.preventBorder(scene);
     });
 </script>
