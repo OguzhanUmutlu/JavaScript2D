@@ -156,7 +156,7 @@
         scene.on("onSetRunning", () => {
             middleText.model.setText(scene.lost ? "YOU LOST" : (scene.win ? "YOU WON" : "PAUSED"));
             middleText.closed = false;
-            scene.onTick(scene.ticks);
+            scene.stopGame();
         });
         setInterval(() => {
             if (scene.lost || scene.win) scene.setRunning(false);
