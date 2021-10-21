@@ -677,6 +677,15 @@ class Scene {
         });
         return this;
     }
+
+    stopGame(){
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        Array.from(this.entities).sort((a, b) => a[1] > b[1] ? -1 : (a[1] === b[1] ? 0 : 1)).map(i => i[0]).filter(data => !data.closed).forEach(entity => {
+            // entity.onUpdate(currentTick);
+            entity.model.render(entity, this);
+        });
+        return this;
+    }
 }
 
 try {
