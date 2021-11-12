@@ -656,6 +656,16 @@ class Scene {
 
     /**
      * @param {Entity} entity
+     * @returns {Scene}
+     */
+    removeEntity(entity) {
+        entity.closed = false;
+        this.entities.delete(entity);
+        return this;
+    }
+
+    /**
+     * @param {Entity} entity
      * @param {number} priority
      * @returns {Scene}
      */
