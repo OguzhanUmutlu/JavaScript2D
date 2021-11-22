@@ -234,6 +234,15 @@ class SquareModel extends _ShapeModel {
 
 class CircleModel extends _ShapeModel {
     /**
+     * @param {number} radius
+     */
+    constructor(radius) {
+        super(0, 0);
+        this.width = radius;
+        this.height = radius;
+    }
+    
+    /**
      * @param {Entity} entity
      * @param {Scene} scene
      */
