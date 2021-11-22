@@ -594,14 +594,17 @@ class Scene {
         this.fps = 0;
         this.ticks = 0;
         this.events = {};
+        this.max_fps = 200;
         setInterval(() => this._fps++);
         setInterval(() => {
             this.fps = this._fps;
             this._fps = 0;
         }, 1000);
-        setInterval(() => {
+        const render = () => {
             if (this.running) this.onTick(this.ticks++);
-        }, 50);
+            setTimeout(render, 1000 / (this.max_fps > 1000 ? 1000 : this.max_fps));
+        };
+        render();
     }
 
     /**
