@@ -240,7 +240,7 @@ class CircleModel extends _ShapeModel {
     render(entity, scene) {
         scene.ctx.fillStyle = this.color || "#000000";
         const circle = new Path2D();
-        circle.arc(entity.x, entity.y, this.width / 2, 0, 2 * Math.PI);
+        circle.arc(entity.x + this.width / 2, entity.y + this.width / 2, this.width / 2, 0, 2 * Math.PI);
         scene.ctx.fill(circle);
         entity.collides = (vec) => vec.distance(entity) <= this.width;
     }
