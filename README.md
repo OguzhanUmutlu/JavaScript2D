@@ -1,5 +1,5 @@
 # JavaScript2D
-Easy and perfect game engine made with JavaScript!
+Easy and cool game engine made with JavaScript!
 
 <hr>
 
