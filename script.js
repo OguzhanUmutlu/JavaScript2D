@@ -1,3 +1,5 @@
+// noinspection JSUnusedGlobalSymbols
+
 /*** @type {{Canvas, loadImage} | null} */
 let CanvasModule;
 let Canvas;
@@ -23,7 +25,10 @@ function __loadImage(url, width, height) {
 }
 
 class Event {
-    /*** @param {string} name */
+    /**
+     * @param {string} name
+     * @param source
+     */
     constructor(name, source) {
         this._name = name;
         this._source = source;
@@ -63,8 +68,18 @@ class Vector2 {
      * @param {number} y
      */
     constructor(x = 0, y = 0) {
+        this.setComponents(x, y);
+    }
+
+    /**
+     * @param {number} x
+     * @param {number} y
+     * @returns {Vector2}
+     */
+    setComponents(x, y) {
         this.x = x;
         this.y = y;
+        return this;
     }
 
     /**
@@ -152,9 +167,10 @@ class _Model {
 
     /**
      * @param {Entity} entity
+     * @param {Vector2} position
      * @param {Scene} scene
      */
-    render(entity, scene) {
+    render(entity, position, scene) {
     }
 }
 
@@ -193,12 +209,13 @@ class ImageModel extends _Model {
 
     /**
      * @param {Entity} entity
+     * @param {Vector2} position
      * @param {Scene} scene
      */
-    render(entity, scene) {
-        scene.rotate(entity.angle || 0, entity.x, entity.y, this.width, this.height);
+    render(entity, position, scene) {
+        scene.rotate(entity.angle || 0, position.x, position.y, this.width, this.height);
         const draw = () => {
-            scene.ctx.drawImage(this.image, entity.x, entity.y, this.width, this.height);
+            scene.ctx.drawImage(this.image, position.x, position.y, this.width, this.height);
             scene.ctx.setTransform(1, 0, 0, 1, 0, 0);
         }
         if (!this.image && this.url) {
@@ -220,13 +237,14 @@ class ImageModel extends _Model {
 class SquareModel extends _ShapeModel {
     /**
      * @param {Entity} entity
+     * @param {Vector2} position
      * @param {Scene} scene
      */
-    render(entity, scene) {
-        scene.rotate(entity.angle || 0, entity.x, entity.y, this.width, this.height);
+    render(entity, position, scene) {
+        scene.rotate(entity.angle || 0, position.x, position.y, this.width, this.height);
         const square = new Path2D();
         scene.ctx.fillStyle = this.color || "#000000";
-        square.rect(entity.x, entity.y, this.width, this.height);
+        square.rect(position.x, position.y, this.width, this.height);
         scene.ctx.fill(square);
         scene.ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
@@ -241,15 +259,16 @@ class CircleModel extends _ShapeModel {
         this.width = radius;
         this.height = radius;
     }
-    
+
     /**
      * @param {Entity} entity
+     * @param {Vector2} position
      * @param {Scene} scene
      */
-    render(entity, scene) {
+    render(entity, position, scene) {
         scene.ctx.fillStyle = this.color || "#000000";
         const circle = new Path2D();
-        circle.arc(entity.x + this.width / 2, entity.y + this.width / 2, this.width / 2, 0, 2 * Math.PI);
+        circle.arc(position.x + this.width / 2, position.y + this.width / 2, this.width / 2, 0, 2 * Math.PI);
         scene.ctx.fill(circle);
         entity.collides = (vec) => vec.distance(entity) <= this.width;
     }
@@ -329,17 +348,39 @@ class TextModel extends _Model {
 
     /**
      * @param {Entity} entity
+     * @param {Vector2} position
      * @param {Scene} scene
      */
-    render(entity, scene) {
-        scene.rotate(entity.angle || 0, entity.x, entity.y, this.width, this.height);
+    render(entity, position, scene) {
+        scene.rotate(entity.angle || 0, position.x, position.y, this.width, this.height);
         scene.ctx.font = this.pixels + "px " + this.font;
         scene.ctx.fillStyle = this.color || "#000000";
         if (this.align) scene.ctx.textAlign = this.align;
         this.text.split("\n").forEach((line, index) => {
-            scene.ctx.fillText(line, entity.x, entity.y + (index * this.pixels), this.maxWidth);
+            scene.ctx.fillText(line, position.x, position.y + (index * this.pixels), this.maxWidth);
         });
         scene.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+}
+
+class CustomModel extends _Model {
+    /**
+     * @param {number} width
+     * @param {number} height
+     * @param {function(Entity, Vector2, Scene): void} renderCallback
+     */
+    constructor(width, height, renderCallback) {
+        super(width, height);
+        this.renderCallback = renderCallback;
+    }
+
+    /**
+     * @param {Entity} entity
+     * @param {Vector2} position
+     * @param {Scene} scene
+     */
+    render(entity, position, scene) {
+        this.renderCallback(entity, position, scene);
     }
 }
 
@@ -420,7 +461,7 @@ class Entity extends Vector2 {
 
     /**
      * @param {"onMove"} event
-     * @param {function(event: Event)} callable
+     * @param {function(Event): void} callable
      * @returns {Entity}
      */
     on(event, callable) {
@@ -475,7 +516,7 @@ class Entity extends Vector2 {
         return collidingEntities;
     }
 
-    /*** @return {string} */
+    /*** @return {0 | 1 | 2 | 3} */
     getNearBorder() {
         const ways = [
             this.collides(new Vector2(0, this.y)), // left
@@ -483,15 +524,12 @@ class Entity extends Vector2 {
             this.collides(new Vector2(scene.canvas.width - 1, this.y)), // right
             this.collides(new Vector2(this.x, scene.canvas.height - 1)) // down
         ];
-        return Object.keys(ways).filter(i => ways[i])[0];
+        return ways.filter(i => i).map((_, i) => i)[0];
     }
 
     /*** @return {boolean} */
     isNearToBorder() {
-        return this.collides(new Vector2(0, this.y))
-            || this.collides(new Vector2(this.x, 0))
-            || this.collides(new Vector2(scene.canvas.width - 1, this.y))
-            || this.collides(new Vector2(this.x, scene.canvas.height - 1));
+        return !!this.getNearBorder();
     }
 
     /**
@@ -604,6 +642,7 @@ class Scene {
         this.ticks = 0;
         this.events = {};
         this.max_fps = 200;
+        this.camera = new Vector2();
         setInterval(() => this._fps++);
         setInterval(() => {
             this.fps = this._fps;
@@ -617,8 +656,8 @@ class Scene {
     }
 
     /**
-     * @param {"onSetRunning"} event
-     * @param {function(event: Event)} callable
+     * @param {"onSetRunning", "onTickStart", "onTickEnd"} event
+     * @param {function(Event): void} callable
      * @returns {Scene}
      */
     on(event, callable) {
@@ -692,18 +731,25 @@ class Scene {
      * @returns {Scene}
      */
     onTick(currentTick) {
+        const ev = new Event("onTickStart", this);
+        ev.call();
+        if (ev.isCancelled()) return this;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         Array.from(this.entities).sort((a, b) => a[1] > b[1] ? -1 : (a[1] === b[1] ? 0 : 1)).map(i => i[0]).filter(data => !data.closed).forEach(entity => {
             entity.onUpdate(currentTick);
-            entity.model.render(entity, this);
+            entity.model.render(entity, entity.clone().subtract(this.camera.x, this.camera.y), this);
         });
+        (new Event("onTickEnd", this)).call();
         return this;
     }
 }
 
 try {
     if (module) {
-        module.exports = {Vector2, ImageModel, SquareModel, TextModel, EntityData, Entity, Scene};
+        module.exports = {
+            Event, Vector2, _Model, _ShapeModel, ImageModel, SquareModel, CircleModel,
+            TextModel, CustomModel, EntityData, Entity, Scene, __loadImage
+        };
     }
 } catch (e) {
 }

@@ -1,0 +1,69 @@
+<canvas style="outline: black 3px solid;" id="canvas" width="500" height="500"></canvas>
+
+<script src="script.min.js"></script>
+<script>
+    class Obstacle extends Entity {
+        onUpdate(currentTick) {
+            this.model.setColor("rgba(255,0,0,0.5)");
+            return super.onUpdate(currentTick);
+        }
+    }
+
+    const canvas = document.getElementById("canvas");
+    const scene = new Scene(canvas);
+    const player = new Entity(
+        new EntityData()
+            .setX(0)
+            .setY(0)
+            .setModel(new SquareModel(20, 20))
+    );
+    scene.addEntity(player, 1);
+    scene.addEntity(new Obstacle(
+        new EntityData()
+            .setX(50)
+            .setY(50)
+            .setModel(new SquareModel(20, 20))
+    ));
+    let heldKeys = {};
+    addEventListener("keydown", key => {
+        heldKeys[key.key] = true;
+        if(key.key === " " && player.clientX) {
+            player.lookAt(new Vector2(player.clientX, player.clientY));
+            player.addMotion(player.getDirection().multiply(150, 150));
+            player.angle = 0;
+        }
+    });
+    addEventListener("keyup", key => {
+        delete heldKeys[key.key];
+    });
+    addEventListener("mousemove", ev => {
+        const {clientX, clientY} = ev;
+        player.clientX = clientX;
+        player.clientY = clientY;
+    });
+    addEventListener("blur", () => heldKeys = {});
+    player.on("onMove", ev => {
+        ev.entity.x = ev.to.x;
+        if (ev.entity.getCollidingEntities(scene, [Obstacle]).length > 0) ev.to.x = ev.from.x;
+        ev.entity.y = ev.to.y;
+        if (ev.entity.getCollidingEntities(scene, [Obstacle]).length > 0) ev.to.y = ev.from.y;
+    });
+    scene.on("onTickEnd", () => {
+        scene.ctx.font = "20px Impact";
+        scene.ctx.fillText(scene.fps + " FPS", canvas.width - 100, 50)
+    });
+    setInterval(() => {
+        let dx = 0;
+        let dy = 0;
+        if (heldKeys["w"]) dy--;
+        if (heldKeys["a"]) dx--;
+        if (heldKeys["s"]) dy++;
+        if (heldKeys["d"]) dx++;
+        player.move(dx, 0);
+        player.move(0, dy);
+        scene.camera.setComponents(
+            player.x + player.model.width - canvas.width / 2,
+            player.y + player.model.height - canvas.height / 2
+        );
+    });
+</script>
