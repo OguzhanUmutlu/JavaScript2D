@@ -172,6 +172,16 @@ class _Model {
      */
     render(entity, position, scene) {
     }
+
+    /**
+     * @returns {_Model}
+     */
+    cloneModel() {
+        const model = new this.constructor(0, 0);
+        const {...obj} = this;
+        Array.from(Object.entries(obj)).forEach(i => model[i[0]] = i[1]);
+        return model;
+    }
 }
 
 class _ShapeModel extends _Model {
@@ -643,6 +653,7 @@ class Scene {
         this.events = {};
         this.max_fps = 200;
         this.camera = new Vector2();
+        this.zoom = 1.0;
         setInterval(() => this._fps++);
         setInterval(() => {
             this.fps = this._fps;
@@ -734,10 +745,16 @@ class Scene {
         const ev = new Event("onTickStart", this);
         ev.call();
         if (ev.isCancelled()) return this;
+        if (this.zoom < 0) this.zoom = 0;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         Array.from(this.entities).sort((a, b) => a[1] > b[1] ? -1 : (a[1] === b[1] ? 0 : 1)).map(i => i[0]).filter(data => !data.closed).forEach(entity => {
             entity.onUpdate(currentTick);
-            entity.model.render(entity, entity.clone().subtract(this.camera.x, this.camera.y), this);
+            const clone = entity.cloneEntity(Entity);
+            const model = clone.model.cloneModel();
+            clone.model = model;
+            clone.model.width *= this.zoom;
+            clone.model.height *= this.zoom;
+            model.render(clone, entity.clone().subtract(this.camera.x, this.camera.y).multiply(this.zoom, this.zoom), this);
         });
         (new Event("onTickEnd", this)).call();
         return this;
