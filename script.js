@@ -485,17 +485,14 @@ class Entity extends Vector2 {
      * @returns {Entity}
      */
     lookAt(vector) {
-        let xDist = vector.x - this.x;
-        let zDist = vector.y - this.y;
-        this.angle = Math.atan2(zDist, xDist) / Math.PI * 180;
+        this.angle = Math.atan2(vector.x - this.x, vector.y - this.y) / Math.PI * 180;
         if (this.angle < 0) this.angle += 360.0;
         return this;
     }
 
     /*** @returns {Vector2} */
     getDirection() {
-        const deg2rad = deg => deg * Math.PI / 180;
-        return new Vector2(-Math.cos(deg2rad(this.angle - 90) - (Math.PI / 2)), -Math.sin(deg2rad(this.angle - 90) - (Math.PI / 2)));
+        return new Vector2(Math.cos(this.angle * Math.PI / 180), Math.sin(this.angle * Math.PI / 180));
     }
 
     /**
